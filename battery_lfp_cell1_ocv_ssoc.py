@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from dash import Dash, dcc, html, Input, Output
@@ -26,7 +27,7 @@ def interpolate_and_dqdv(V, Q, dv):
 
 
 def capacity_to_soc(Q):
-    """Convert capacity to SOC"""
+
     Qmin = np.min(Q)
     Qmax = np.max(Q)
 
@@ -45,6 +46,7 @@ colors = px.colors.qualitative.Dark24
 
 # ================= DASH APP =================
 app = Dash(__name__)
+server = app.server   # IMPORTANT for Render
 
 app.layout = html.Div([
 
@@ -115,54 +117,25 @@ def update_graph(cell_a, cell_b, mode):
         Vd = df.iloc[:, c+2].dropna().to_numpy()
         Qd = df.iloc[:, c+3].dropna().to_numpy()
 
-        # SOC calculation
         SOCc = capacity_to_soc(Qc)
         SOCd = capacity_to_soc(Qd)
 
-        # ICA
         Vci, dQci = interpolate_and_dqdv(Vc, Qc, DV)
         Vdi, dQdi = interpolate_and_dqdv(Vd, Qd, DV)
 
         return SOCc, Vc, SOCd, Vd, dQci, Vci, dQdi, Vdi
 
 
-    # background curves
     for i in range(n_cells):
 
         SOCc, Vc, SOCd, Vd, dQci, Vci, dQdi, Vdi = get_cell_data(i)
         color = colors[i % len(colors)]
 
-        fig.add_trace(go.Scatter(
-            x=SOCc,
-            y=Vc,
-            opacity=0.2,
-            line=dict(color=color),
-            showlegend=False
-        ),1,1)
+        fig.add_trace(go.Scatter(x=SOCc,y=Vc,opacity=0.2,line=dict(color=color),showlegend=False),1,1)
+        fig.add_trace(go.Scatter(x=SOCd,y=Vd,opacity=0.2,line=dict(color=color),showlegend=False),1,1)
 
-        fig.add_trace(go.Scatter(
-            x=SOCd,
-            y=Vd,
-            opacity=0.2,
-            line=dict(color=color),
-            showlegend=False
-        ),1,1)
-
-        fig.add_trace(go.Scatter(
-            x=dQci,
-            y=Vci,
-            opacity=0.2,
-            line=dict(color=color),
-            showlegend=False
-        ),1,2)
-
-        fig.add_trace(go.Scatter(
-            x=dQdi,
-            y=Vdi,
-            opacity=0.2,
-            line=dict(color=color),
-            showlegend=False
-        ),1,2)
+        fig.add_trace(go.Scatter(x=dQci,y=Vci,opacity=0.2,line=dict(color=color),showlegend=False),1,2)
+        fig.add_trace(go.Scatter(x=dQdi,y=Vdi,opacity=0.2,line=dict(color=color),showlegend=False),1,2)
 
 
     def highlight_cell(i,label):
@@ -170,33 +143,11 @@ def update_graph(cell_a, cell_b, mode):
         SOCc, Vc, SOCd, Vd, dQci, Vci, dQdi, Vdi = get_cell_data(i)
         color = colors[i % len(colors)]
 
-        fig.add_trace(go.Scatter(
-            x=SOCc,
-            y=Vc,
-            name=f"{label} Charge",
-            line=dict(width=3,color=color)
-        ),1,1)
+        fig.add_trace(go.Scatter(x=SOCc,y=Vc,name=f"{label} Charge",line=dict(width=3,color=color)),1,1)
+        fig.add_trace(go.Scatter(x=SOCd,y=Vd,name=f"{label} Discharge",line=dict(width=3,color=color)),1,1)
 
-        fig.add_trace(go.Scatter(
-            x=SOCd,
-            y=Vd,
-            name=f"{label} Discharge",
-            line=dict(width=3,color=color)
-        ),1,1)
-
-        fig.add_trace(go.Scatter(
-            x=dQci,
-            y=Vci,
-            line=dict(width=3,color=color),
-            showlegend=False
-        ),1,2)
-
-        fig.add_trace(go.Scatter(
-            x=dQdi,
-            y=Vdi,
-            line=dict(width=3,color=color),
-            showlegend=False
-        ),1,2)
+        fig.add_trace(go.Scatter(x=dQci,y=Vci,line=dict(width=3,color=color),showlegend=False),1,2)
+        fig.add_trace(go.Scatter(x=dQdi,y=Vdi,line=dict(width=3,color=color),showlegend=False),1,2)
 
 
     highlight_cell(cell_a, cell_names[cell_a])
@@ -204,11 +155,7 @@ def update_graph(cell_a, cell_b, mode):
     if mode=="compare" and cell_b!=cell_a:
         highlight_cell(cell_b, cell_names[cell_b])
 
-
-    fig.update_layout(
-        template="plotly_white",
-        hovermode="closest"
-    )
+    fig.update_layout(template="plotly_white",hovermode="closest")
 
     fig.update_xaxes(title="SOC (%)",range=[0,100],row=1,col=1)
     fig.update_xaxes(title="dQ/dV (mAh/V)",range=ICA_RANGE,row=1,col=2)
@@ -219,8 +166,7 @@ def update_graph(cell_a, cell_b, mode):
 
 # ================= RUN =================
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 8050))
+
     app.run(host="0.0.0.0", port=port)
-
-
-
